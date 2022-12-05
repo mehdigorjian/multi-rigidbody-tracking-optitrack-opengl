@@ -107,6 +107,9 @@ std::map<int, Eigen::Vector3f> rigids_map_ang;
 
 Eigen::Vector3f euler;
 
+Eigen::Vector3f c1(.0, .8, 1.), c2(1., .4, 1.), c3(1., .4, .4), c4(.4, 1., .4), c5(1, 1, 0);
+Eigen::Vector3f objColor[] = {c1, c2, c3, c4, c5};
+
 // Constants -------------------------------------------------------------------
 
 #define WHEEL_UP 3
@@ -914,7 +917,7 @@ void draw_grid() {
         for (int k = 0; k < 2; k++) {
             for (int i = -numberOfGrids; i < numberOfGrids + 1; i++) {
                 if (!(i % 10))
-                    glColor3f(1.0, 1.0, 1.0);
+                    glColor3f(.8, .8, .8);
                 else
                     glColor3f(0.4, 0.4, 0.4);
                 glBegin(GL_LINE_STRIP);
@@ -1010,26 +1013,26 @@ void drawObj(float x, float y, float z) {
 //     }
 // }
 
-void drawObjs(Eigen::Vector3f pos, Eigen::Vector3f ang) {
+void drawObjs(Eigen::Vector3f pos, Eigen::Vector3f ang, float r, float g, float b) {
     // int th_id;
-#pragma omp parallel for
-    for (int i = 0; i < numberOfRigids; i++) {
-        // th_id = omp_get_thread_num();
-        // printf("=> thread id: %i\t", th_id);
-        glColor3f(1.0, 0.5, 1.0);
-        glLineWidth(.5);
-        glMatrixMode(GL_MODELVIEW);
-        glPushMatrix();
-        // translation matrix (the reason that we use minus x and z is the in OpenGL the Z axes is towards the screen and the X axes is to the right, despite the Optitrack)
-        glTranslatef(-pos[0] * cameraPosCoef, pos[1] * cameraPosCoef, -pos[2] * cameraPosCoef);
-        // rotation matrices
-        glRotatef(180 - ang[0], 1, 0, 0);
-        glRotatef(180 - ang[1], 0, 1, 0);
-        glRotatef(180 - ang[2], 0, 0, 1);
-        glutSolidCube(100);
-        glPopMatrix();
-        // glTranslatef(-x * cameraPosCoef * i * 5, y * cameraPosCoef * i * 5, -z * cameraPosCoef * i * 5);
-    }
+    // #pragma omp parallel for
+    // for (int i = 0; i < numberOfRigids; i++) {
+    // th_id = omp_get_thread_num();
+    // printf("=> thread id: %i\t", th_id);
+    // glColor3f(0.4, 1., 0.4);
+    glColor3f(r, g, b);
+    // glLineWidth(.5);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    // translation matrix (the reason that we use minus x and z is the in OpenGL the Z axes is towards the screen and the X axes is to the right, despite the Optitrack)
+    glTranslatef(-pos[0] * cameraPosCoef, pos[1] * cameraPosCoef, -pos[2] * cameraPosCoef);
+    // rotation matrices
+    glRotatef(180 - ang[0], 1, 0, 0);
+    glRotatef(180 - ang[1], 0, 1, 0);
+    glRotatef(180 - ang[2], 0, 0, 1);
+    glutSolidCube(100);
+    glPopMatrix();
+    // }
 }
 
 void display() {
@@ -1078,12 +1081,17 @@ void display() {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // drawObj(px, py, pz);
 
-    // int th_id;
-    // #pragma omp parallel for
+    int th_id;
+#pragma omp parallel
     for (int i = 1; i <= numberOfRigids; i++) {
-        // th_id = omp_get_thread_num();
-        // printf("=> thread id: %i\t", th_id);
-        drawObjs(rigids_map_pos[i], rigids_map_ang[i]);
+        float rr = static_cast<float>(i) / static_cast<float>(numberOfRigids);
+        float gg = 1. - rr;
+        float bb = static_cast<float>(i) / 10.0;
+
+        th_id = omp_get_thread_num();
+        printf("=> thread id: %i\t", th_id);
+
+        drawObjs(rigids_map_pos[i], rigids_map_ang[i], rr, gg, bb);
     }
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     draw_grid();
