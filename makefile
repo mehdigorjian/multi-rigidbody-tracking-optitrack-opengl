@@ -1,11 +1,11 @@
 include=-I../../include
 libpath=-L../../lib
-libs=-lNatNet -lGLU -lGL -lglut -lstdc++ -lm -lglfw -lGLEW -ldl -lpthread #-lHL -lHLU -lHDU -lHD
+libs=-lNatNet -lGLU -lGL -lglut -lstdc++ -lm -lglfw -lGLEW -ldl -lpthread -lgomp #-lHL -lHLU -lHDU -lHD
 
 all:multiRigidTracking
 
 multiRigidTracking: 
-	g++ multiRigidTracking.cpp $(include) $(libpath) $(libs) -o multiRigidTracking
+	g++ multiRigidTracking.cpp -fopenmp $(include) $(libpath) $(libs) -o multiRigidTracking
 
 .PHONY: clean
 clean:
