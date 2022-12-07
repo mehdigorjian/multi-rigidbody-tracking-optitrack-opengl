@@ -77,10 +77,10 @@ int WindowHeight = 500;
 
 // static void Timer(int);
 void anim();
-void drawObj(float, float, float);
 void drawObjs(Eigen::Vector3f, Eigen::Vector3f);
+void draw_axis();
 void drawText(char*, float, float, float);
-void showCoordinates();
+void showCoordinates(Eigen::Vector3f);
 void draw_grid();
 void update_camera_location();
 void init_scene();
@@ -89,7 +89,6 @@ void resize(int, int);
 void mouse(int, int, int, int);
 void motion(int, int);
 
-float px, py, pz;
 int coor_accuracy = 6;
 int move = 0;
 int numberOfRigids;
@@ -100,9 +99,6 @@ const float cameraPosCoef = 1000.0f;
 
 std::map<int, Eigen::Vector3f> rigids_map_pos;
 std::map<int, Eigen::Vector3f> rigids_map_ang;
-
-// std::vector<Eigen::Vector3f> rigids_pos;
-// std::vector<Eigen::Vector3f> rigids_ang;
 
 Eigen::Vector3f euler;
 
@@ -656,11 +652,6 @@ void NATNET_CALLCONV DataHandler(sFrameOfMocapData* data, void* pUserData) {
                data->RigidBodies[i].qw);
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // the rigid boday centroid location
-        px = data->RigidBodies[i].x;
-        py = data->RigidBodies[i].y;
-        pz = data->RigidBodies[i].z;
-
         Eigen::Vector3f current_pos(data->RigidBodies[i].x, data->RigidBodies[i].y, data->RigidBodies[i].z);
         rigids_map_pos[data->RigidBodies[i].ID] = current_pos;
 
@@ -675,9 +666,7 @@ void NATNET_CALLCONV DataHandler(sFrameOfMocapData* data, void* pUserData) {
         euler = qq.toRotationMatrix().eulerAngles(0, 1, 2);
         euler = euler * 180 / M_PI;
         // std::cout << "Euler from quaternion in roll, pitch, yaw" << std::endl << euler << std::endl;
-
         rigids_map_ang[data->RigidBodies[i].ID] = euler;
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     }
 
     // Skeletons
@@ -886,12 +875,12 @@ char getch() {
 }
 #endif
 //////////////////////////////////////////////////////////////////////////// start working on integrating glut with the code to see if it shows the spheres at the poit locations
-static void Timer(int value) {
-    move += 0.1;
-    glutPostRedisplay();
-    // 100 milliseconds
-    glutTimerFunc(100, Timer, 0);
-}
+// static void Timer(int value) {
+//     move += 0.1;
+//     glutPostRedisplay();
+//     // 100 milliseconds
+//     glutTimerFunc(100, Timer, 0);
+// }
 
 void anim() {
     glutPostRedisplay();
@@ -978,45 +967,8 @@ void init_scene() {
     update_camera_location();
 }
 
-void drawObj(float x, float y, float z) {
-    for (int i = 0; i < 3; i++) {
-        glPushMatrix();
-        // translation matrix (the reason that we use minus x and z is the in OpenGL the Z axes is towards the screen and the X axes is to the right, despite the Optitrack)
-        glTranslatef(-px * cameraPosCoef * i, py * cameraPosCoef, -pz * cameraPosCoef);
-        // rotation matrices
-        glRotatef(180 - euler[0], 1, 0, 0);
-        glRotatef(180 - euler[1], 0, 1, 0);
-        glRotatef(180 - euler[2], 0, 0, 1);
-        glutSolidCube(100);
-        glPopMatrix();
-        // glTranslatef(-x * cameraPosCoef * i * 5, y * cameraPosCoef * i * 5, -z * cameraPosCoef * i * 5);
-    }
-}
-
-// void drawObjs(Eigen::Vector3f pos, Eigen::Vector3f ang) {
-//     for (int i = 0; i < numberOfRigids; i++) {
-//         glPushMatrix();
-//         // translation matrix (the reason that we use minus x and z is the in OpenGL the Z axes is towards the screen and the X axes is to the right, despite the Optitrack)
-//         glTranslatef(-pos[0] * cameraPosCoef, pos[1] * cameraPosCoef, -pos[2] * cameraPosCoef);
-//         // rotation matrices
-//         glRotatef(180 - ang[0], 1, 0, 0);
-//         glRotatef(180 - ang[1], 0, 1, 0);
-//         glRotatef(180 - ang[2], 0, 0, 1);
-//         glutSolidCube(100);
-//         glPopMatrix();
-//         // glTranslatef(-x * cameraPosCoef * i * 5, y * cameraPosCoef * i * 5, -z * cameraPosCoef * i * 5);
-//     }
-// }
-
 void drawObjs(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f col) {
-    // int th_id;
-    // #pragma omp parallel for
-    // for (int i = 0; i < numberOfRigids; i++) {
-    // th_id = omp_get_thread_num();
-    // printf("=> thread id: %i\t", th_id);
-    // glColor3f(0.4, 1., 0.4);
     glColor3f(col[0], col[1], col[2]);
-    // glLineWidth(.5);
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     // translation matrix (the reason that we use minus x and z is the in OpenGL the Z axes is towards the screen and the X axes is to the right, despite the Optitrack)
@@ -1026,18 +978,11 @@ void drawObjs(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f col) {
     glRotatef(180 - ang[1], 0, 1, 0);
     glRotatef(180 - ang[2], 0, 0, 1);
     glutSolidCube(100);
-    showCoordinates();
+    showCoordinates(pos);
     glPopMatrix();
-    // }
 }
 
-void display() {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glColor3f(1.0, 1.0, 1.0);
-
-    glLoadIdentity();
-    gluLookAt(EyeX, EyeY, EyeZ, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
-
+void draw_axis() {
     glPushAttrib(GL_ALL_ATTRIB_BITS);
     glLineWidth(4.0);
     glBegin(GL_LINES);
@@ -1056,40 +1001,26 @@ void display() {
     }
     glEnd();
     glPopAttrib();
+}
 
-    // showCoordinates();
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glColor3f(1.0, 1.0, 1.0);
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////MODIFY HERE TO PULL ALL THE POS AND ANGLES OF THE RIGID BODIES
-    // draw cube
-    // glColor3f(1.0, 0.5, 1.0);
-    // glLineWidth(.5);
-    // glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    gluLookAt(EyeX, EyeY, EyeZ, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
 
-    // glPushMatrix();
-    // // translation matrix (the reason that we use minus x and z is the in OpenGL the Z axes is towards the screen and the X axes is to the right, despite the Optitrack)
-    // glTranslatef(-px * cameraPosCoef, py * cameraPosCoef, -pz * cameraPosCoef);
-    // // rotation matrices
-    // glRotatef(180 - euler[0], 1, 0, 0);
-    // glRotatef(180 - euler[1], 0, 1, 0);
-    // glRotatef(180 - euler[2], 0, 0, 1);
-    // // glutSolidCube(100);
-    // drawObj(px, py, pz);
-    // glPopMatrix();
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // drawObj(px, py, pz);
+    draw_axis();
+    draw_grid();
 
-    int th_id;
+    // int th_id;
 #pragma omp parallel
     for (int i = 1; i <= numberOfRigids; i++) {
         Eigen::Vector3f color(static_cast<float>(i) / static_cast<float>(numberOfRigids), 1. - static_cast<float>(i) / static_cast<float>(numberOfRigids), static_cast<float>(i) / 10.0);
-        th_id = omp_get_thread_num();
+        // th_id = omp_get_thread_num();
         // printf("=> thread id: %i\t", th_id);
-
         drawObjs(rigids_map_pos[i], rigids_map_ang[i], color);
     }
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    draw_grid();
-
     glutSwapBuffers();
 }
 
@@ -1109,12 +1040,11 @@ void drawText(char* s, float x, float y, float z) {
     while (*s) {
         // glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *s);
         glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_10, *s);
-
         s++;
     }
 }
 
-void showCoordinates() {
+void showCoordinates(Eigen::Vector3f p) {
     // showing coordinates as a fixed entity in the 2D space and
     // not rotating with the mouse
     // glMatrixMode(GL_MODELVIEW);
@@ -1124,23 +1054,23 @@ void showCoordinates() {
 
     // convert string to const char*
     // convert const char* to char*
-    std::string tempX = "X = " + std::to_string(px * 1000);
+    std::string tempX = "X = " + std::to_string(p[0] * 1000);
     const char* c1 = tempX.c_str();
     char* c1x = strdup(c1);
     // drawText(c1x, WindowWidth - 150, WindowHeight - 50, 0);
     drawText(c1x, 0, 0, 0);
 
-    std::string tempY = "Y = " + std::to_string(py * 1000);
+    std::string tempY = "Y = " + std::to_string(p[1] * 1000);
     const char* c2 = tempY.c_str();
     char* c2y = strdup(c2);
     // drawText(c2y, WindowWidth - 150, WindowHeight - 75, 0);
-    drawText(c2y, 0, -40, 0);
+    drawText(c2y, 0, -30, 0);
 
-    std::string tempZ = "Z = " + std::to_string(pz * 1000);
+    std::string tempZ = "Z = " + std::to_string(p[2] * 1000);
     const char* c3 = tempZ.c_str();
     char* c3z = strdup(c3);
     // drawText(c3z, WindowWidth - 150, WindowHeight - 100, 0);
-    drawText(c3z, 0, -80, 0);
+    drawText(c3z, 0, -60, 0);
 
     // glPopMatrix();
 }
