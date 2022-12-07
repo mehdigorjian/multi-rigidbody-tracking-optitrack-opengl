@@ -77,10 +77,10 @@ int WindowHeight = 500;
 
 // static void Timer(int);
 void anim();
-void drawObjs(Eigen::Vector3f, Eigen::Vector3f);
+void drawObj(Eigen::Vector3f, Eigen::Vector3f, const Eigen::Vector3f);
 void draw_axis();
 void drawText(char*, float, float, float);
-void showCoordinates(Eigen::Vector3f);
+void showCoordinates(Eigen::Vector3f, const Eigen::Vector3f);
 void draw_grid();
 void update_camera_location();
 void init_scene();
@@ -96,6 +96,7 @@ int numberOfRigids;
 const int numberOfGrids = 20;
 const float gridScale = 10.0f;  // 1.0 = 1 millimiter, 10.0 = 1 centimeters
 const float cameraPosCoef = 1000.0f;
+const Eigen::Vector3f coordinateTextOffset(50, 100, 50);
 
 std::map<int, Eigen::Vector3f> rigids_map_pos;
 std::map<int, Eigen::Vector3f> rigids_map_ang;
@@ -967,7 +968,7 @@ void init_scene() {
     update_camera_location();
 }
 
-void drawObjs(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f col) {
+void drawObj(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f col, const Eigen::Vector3f textOffset) {
     glColor3f(col[0], col[1], col[2]);
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
@@ -978,7 +979,7 @@ void drawObjs(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f col) {
     glRotatef(180 - ang[1], 0, 1, 0);
     glRotatef(180 - ang[2], 0, 0, 1);
     glutSolidCube(100);
-    showCoordinates(pos);
+    showCoordinates(pos, textOffset);
     glPopMatrix();
 }
 
@@ -1019,7 +1020,7 @@ void display() {
         Eigen::Vector3f color(static_cast<float>(i) / static_cast<float>(numberOfRigids), 1. - static_cast<float>(i) / static_cast<float>(numberOfRigids), static_cast<float>(i) / 10.0);
         // th_id = omp_get_thread_num();
         // printf("=> thread id: %i\t", th_id);
-        drawObjs(rigids_map_pos[i], rigids_map_ang[i], color);
+        drawObj(rigids_map_pos[i], rigids_map_ang[i], color, coordinateTextOffset);
     }
     glutSwapBuffers();
 }
@@ -1044,33 +1045,37 @@ void drawText(char* s, float x, float y, float z) {
     }
 }
 
-void showCoordinates(Eigen::Vector3f p) {
+void showCoordinates(Eigen::Vector3f p, const Eigen::Vector3f offset) {
     // showing coordinates as a fixed entity in the 2D space and
     // not rotating with the mouse
     // glMatrixMode(GL_MODELVIEW);
     // glPushMatrix();
     // gluOrtho2D(0.0, WindowWidth, 0.0, WindowHeight);
     // glLoadIdentity();
+    float x, y, z;
+    x = (-1000 * p[0] / (2 * gridScale));
+    y = (1000 * p[1] / (2 * gridScale));
+    z = (-1000 * p[2] / (2 * gridScale));
 
     // convert string to const char*
     // convert const char* to char*
-    std::string tempX = "X = " + std::to_string(p[0] * 1000);
+    std::string tempX = "X = " + std::to_string(x);
     const char* c1 = tempX.c_str();
     char* c1x = strdup(c1);
     // drawText(c1x, WindowWidth - 150, WindowHeight - 50, 0);
-    drawText(c1x, 0, 0, 0);
+    drawText(c1x, offset[0], offset[1], offset[2]);
 
-    std::string tempY = "Y = " + std::to_string(p[1] * 1000);
+    std::string tempY = "Y = " + std::to_string(y);
     const char* c2 = tempY.c_str();
     char* c2y = strdup(c2);
     // drawText(c2y, WindowWidth - 150, WindowHeight - 75, 0);
-    drawText(c2y, 0, -30, 0);
+    drawText(c2y, offset[0], offset[1] - 30, offset[2]);
 
-    std::string tempZ = "Z = " + std::to_string(p[2] * 1000);
+    std::string tempZ = "Z = " + std::to_string(z);
     const char* c3 = tempZ.c_str();
     char* c3z = strdup(c3);
     // drawText(c3z, WindowWidth - 150, WindowHeight - 100, 0);
-    drawText(c3z, 0, -60, 0);
+    drawText(c3z, offset[0], offset[1] - 60, offset[2]);
 
     // glPopMatrix();
 }
