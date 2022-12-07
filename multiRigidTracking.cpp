@@ -79,9 +79,8 @@ int WindowHeight = 500;
 void anim();
 void drawObj(float, float, float);
 void drawObjs(Eigen::Vector3f, Eigen::Vector3f);
-void drawText(char*, float, float);
+void drawText(char*, float, float, float);
 void showCoordinates();
-void showId();
 void draw_grid();
 void update_camera_location();
 void init_scene();
@@ -107,14 +106,10 @@ std::map<int, Eigen::Vector3f> rigids_map_ang;
 
 Eigen::Vector3f euler;
 
-Eigen::Vector3f c1(.0, .8, 1.), c2(1., .4, 1.), c3(1., .4, .4), c4(.4, 1., .4), c5(1, 1, 0);
-Eigen::Vector3f objColor[] = {c1, c2, c3, c4, c5};
-
 // Constants -------------------------------------------------------------------
 
 #define WHEEL_UP 3
 #define WHEEL_DOWN 4
-
 #define CAMERA_DISTANCE_MAX 100.0
 
 // Global variables ------------------------------------------------------------
@@ -1013,14 +1008,14 @@ void drawObj(float x, float y, float z) {
 //     }
 // }
 
-void drawObjs(Eigen::Vector3f pos, Eigen::Vector3f ang, float r, float g, float b) {
+void drawObjs(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f col) {
     // int th_id;
     // #pragma omp parallel for
     // for (int i = 0; i < numberOfRigids; i++) {
     // th_id = omp_get_thread_num();
     // printf("=> thread id: %i\t", th_id);
     // glColor3f(0.4, 1., 0.4);
-    glColor3f(r, g, b);
+    glColor3f(col[0], col[1], col[2]);
     // glLineWidth(.5);
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
@@ -1031,6 +1026,7 @@ void drawObjs(Eigen::Vector3f pos, Eigen::Vector3f ang, float r, float g, float 
     glRotatef(180 - ang[1], 0, 1, 0);
     glRotatef(180 - ang[2], 0, 0, 1);
     glutSolidCube(100);
+    showCoordinates();
     glPopMatrix();
     // }
 }
@@ -1061,7 +1057,8 @@ void display() {
     glEnd();
     glPopAttrib();
 
-    showCoordinates();
+    // showCoordinates();
+
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////MODIFY HERE TO PULL ALL THE POS AND ANGLES OF THE RIGID BODIES
     // draw cube
     // glColor3f(1.0, 0.5, 1.0);
@@ -1084,14 +1081,11 @@ void display() {
     int th_id;
 #pragma omp parallel
     for (int i = 1; i <= numberOfRigids; i++) {
-        float rr = static_cast<float>(i) / static_cast<float>(numberOfRigids);
-        float gg = 1. - rr;
-        float bb = static_cast<float>(i) / 10.0;
-
+        Eigen::Vector3f color(static_cast<float>(i) / static_cast<float>(numberOfRigids), 1. - static_cast<float>(i) / static_cast<float>(numberOfRigids), static_cast<float>(i) / 10.0);
         th_id = omp_get_thread_num();
-        printf("=> thread id: %i\t", th_id);
+        // printf("=> thread id: %i\t", th_id);
 
-        drawObjs(rigids_map_pos[i], rigids_map_ang[i], rr, gg, bb);
+        drawObjs(rigids_map_pos[i], rigids_map_ang[i], color);
     }
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     draw_grid();
@@ -1108,9 +1102,10 @@ void resize(int w, int h) {
     glLoadIdentity();
 }
 
-void drawText(char* s, float x, float y) {
-    glRasterPos2f(x, y);
-    glColor3f(1.0, 1.0, 1.0);
+void drawText(char* s, float x, float y, float z) {
+    // glRasterPos2f(x, y);
+    glRasterPos3f(x, y, z);
+    // glColor3f(1.0, 1.0, 1.0);
     while (*s) {
         // glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *s);
         glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_10, *s);
@@ -1122,48 +1117,32 @@ void drawText(char* s, float x, float y) {
 void showCoordinates() {
     // showing coordinates as a fixed entity in the 2D space and
     // not rotating with the mouse
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    gluOrtho2D(0.0, WindowWidth, 0.0, WindowHeight);
-    glLoadIdentity();
+    // glMatrixMode(GL_MODELVIEW);
+    // glPushMatrix();
+    // gluOrtho2D(0.0, WindowWidth, 0.0, WindowHeight);
+    // glLoadIdentity();
 
-    std::string tempX = "X = " + std::to_string(px * 1000);
     // convert string to const char*
-    const char* c1 = tempX.c_str();
     // convert const char* to char*
+    std::string tempX = "X = " + std::to_string(px * 1000);
+    const char* c1 = tempX.c_str();
     char* c1x = strdup(c1);
-    drawText(c1x, WindowWidth - 150, WindowHeight - 50);
+    // drawText(c1x, WindowWidth - 150, WindowHeight - 50, 0);
+    drawText(c1x, 0, 0, 0);
 
     std::string tempY = "Y = " + std::to_string(py * 1000);
     const char* c2 = tempY.c_str();
     char* c2y = strdup(c2);
-    drawText(c2y, WindowWidth - 150, WindowHeight - 75);
+    // drawText(c2y, WindowWidth - 150, WindowHeight - 75, 0);
+    drawText(c2y, 0, -40, 0);
 
     std::string tempZ = "Z = " + std::to_string(pz * 1000);
     const char* c3 = tempZ.c_str();
     char* c3z = strdup(c3);
-    drawText(c3z, WindowWidth - 150, WindowHeight - 100);
+    // drawText(c3z, WindowWidth - 150, WindowHeight - 100, 0);
+    drawText(c3z, 0, -80, 0);
 
-    // char cX[300];
-    // gcvt(*px * 1000, coor_accuracy, cX);
-
-    // char cY[300];
-    // gcvt(*py * 1000, coor_accuracy, cY);
-
-    // char cZ[300];
-    // gcvt(*pz * 1000, coor_accuracy, cZ);
-
-    // drawText(cX, 0., 0.4);
-    // drawText(cY, 0., 0.2);
-    // drawText(cZ, 0., 0.0);
-    glPopMatrix();
-}
-
-void showId() {
-    std::string tempY = "ID = " + std::to_string(py * 1000);
-    const char* c2 = tempY.c_str();
-    char* c2y = strdup(c2);
-    drawText(c2y, WindowWidth - 150, WindowHeight - 75);
+    // glPopMatrix();
 }
 
 // Mouse callback --------------------------------------------------------------
