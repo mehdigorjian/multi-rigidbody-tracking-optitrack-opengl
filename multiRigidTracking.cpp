@@ -1017,7 +1017,7 @@ void display() {
     // int th_id;
 #pragma omp parallel
     for (int i = 1; i <= numberOfRigids; i++) {
-        Eigen::Vector3f color(static_cast<float>(i) / static_cast<float>(numberOfRigids), 1. - static_cast<float>(i) / static_cast<float>(numberOfRigids), static_cast<float>(i) / 10.0);
+        Eigen::Vector3f color(static_cast<float>(i) / static_cast<float>(numberOfRigids), 1.0 - static_cast<float>(i) / static_cast<float>(numberOfRigids), static_cast<float>(i) / 10.0);
         // th_id = omp_get_thread_num();
         // printf("=> thread id: %i\t", th_id);
         drawObj(rigids_map_pos[i], rigids_map_ang[i], color, coordinateTextOffset);
@@ -1094,7 +1094,6 @@ void mouse(int button, int state, int x, int y) {
             CameraDistance = (CameraDistance < CAMERA_DISTANCE_MAX ? CameraDistance + 1.0 : CAMERA_DISTANCE_MAX);
             break;
     }
-
     update_camera_location();
 }
 
