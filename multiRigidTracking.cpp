@@ -63,6 +63,7 @@ Usage [optional]:
 #include <NatNetClient.h>
 #include <NatNetTypes.h>
 
+#include <list>
 #include <thread>
 #include <vector>
 
@@ -77,8 +78,8 @@ int WindowHeight = 500;
 
 // static void Timer(int);
 void anim();
-void drawObj(Eigen::Vector3f, Eigen::Vector3f, const Eigen::Vector3f, int);
-void addObjects(std::map<int, Eigen::Vector3f>*, std::map<int, Eigen::Vector3f>*, int, const Eigen::Vector3f*);
+void drawObj(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f col, const Eigen::Vector3f textOffset, int objID);
+void addObjects(std::map<int, Eigen::Vector3f>*, std::map<int, Eigen::Vector3f>*, const Eigen::Vector3f*);
 void draw_axis();
 void drawText(char*, float, float, float);
 void showCoordinates(Eigen::Vector3f, Eigen::Vector3f, const Eigen::Vector3f, int);
@@ -102,7 +103,7 @@ const Eigen::Vector3f coordinateTextOffset(50, 100, 50);
 std::map<int, Eigen::Vector3f> rigids_map_pos;
 std::map<int, Eigen::Vector3f> rigids_map_ang;
 
-Eigen::Vector3f euler;
+Eigen::Vector3f colorSet[] = {Eigen::Vector3f(0., .4, 1.), Eigen::Vector3f(.4, 1., .2), Eigen::Vector3f(1., .2, 0.), Eigen::Vector3f(1., 0, 1.), Eigen::Vector3f(1., 1., 0.), Eigen::Vector3f(1., .6, 0.), Eigen::Vector3f(.4, .6, 0.), Eigen::Vector3f(.2, .2, .8), Eigen::Vector3f(.4, 1., 1.), Eigen::Vector3f(1., .0, .4)};
 
 // Constants -------------------------------------------------------------------
 
@@ -665,7 +666,7 @@ void NATNET_CALLCONV DataHandler(sFrameOfMocapData* data, void* pUserData) {
         qq.z() = data->RigidBodies[i].qz;
         qq.w() = data->RigidBodies[i].qw;
 
-        euler = qq.toRotationMatrix().eulerAngles(0, 1, 2);
+        Eigen::Vector3f euler = qq.toRotationMatrix().eulerAngles(0, 1, 2);
         euler = euler * 180 / M_PI;
         // std::cout << "Euler from quaternion in roll, pitch, yaw" << std::endl << euler << std::endl;
         rigids_map_ang[data->RigidBodies[i].ID] = euler;
@@ -984,11 +985,12 @@ void drawObj(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f col, cons
     glPopMatrix();
 }
 
-void addObjects(std::map<int, Eigen::Vector3f>* rigids_map_pos, std::map<int, Eigen::Vector3f>* rigids_map_ang, int numOfRigids, const Eigen::Vector3f* coorTextOffset) {
+void addObjects(std::map<int, Eigen::Vector3f>* rigids_map_pos, std::map<int, Eigen::Vector3f>* rigids_map_ang, const Eigen::Vector3f* coorTextOffset) {
     // int th_id;
 #pragma omp parallel
-    for (int i = 1; i <= numOfRigids; i++) {
-        Eigen::Vector3f color(static_cast<float>(i) / static_cast<float>(numberOfRigids), 1.0 - static_cast<float>(i) / static_cast<float>(numberOfRigids), static_cast<float>(i) / 10.0);
+    for (int i = 1; i <= numberOfRigids; i++) {
+        // Eigen::Vector3f color(static_cast<float>(i) / static_cast<float>(numberOfRigids), 1.0 - static_cast<float>(i) / static_cast<float>(numberOfRigids), static_cast<float>(i) / 10.0);
+        Eigen::Vector3f color = colorSet[i - 1];
         // th_id = omp_get_thread_num();
         // printf("=> thread id: %i\t", th_id);
         drawObj((*rigids_map_pos)[i], (*rigids_map_ang)[i], color, *coorTextOffset, i);
@@ -1026,7 +1028,7 @@ void display() {
     draw_axis();
     draw_grid();
 
-    addObjects(&rigids_map_pos, &rigids_map_ang, numberOfRigids, &coordinateTextOffset);
+    addObjects(&rigids_map_pos, &rigids_map_ang, &coordinateTextOffset);
 
     glutSwapBuffers();
 }
@@ -1059,16 +1061,16 @@ void showCoordinates(Eigen::Vector3f p, Eigen::Vector3f a, const Eigen::Vector3f
     // gluOrtho2D(0.0, WindowWidth, 0.0, WindowHeight);
     // glLoadIdentity();
 
-    float x, y, z;
-    x = (-1000 * p[0] / (2 * gridScale));
-    y = (1000 * p[1] / (2 * gridScale));
-    z = (-1000 * p[2] / (2 * gridScale));
-
     // display object id
     std::string tempID = "ID: " + std::to_string(id);
     const char* cID = tempID.c_str();
     char* c1ID = strdup(cID);
     drawText(c1ID, offset[0], offset[1], offset[2]);
+
+    float x, y, z;
+    x = -1000 * p[0] / (2 * gridScale);
+    y = 1000 * p[1] / (2 * gridScale);
+    z = -1000 * p[2] / (2 * gridScale);
 
     // display position coordinates
     // convert string to const char*
