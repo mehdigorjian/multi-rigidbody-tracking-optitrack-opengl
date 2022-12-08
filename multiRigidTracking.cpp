@@ -91,19 +91,26 @@ void resize(int, int);
 void mouse(int, int, int, int);
 void motion(int, int);
 
-int coor_accuracy = 6;
-int move = 0;
-int numberOfRigids;
+// int coor_accuracy = 6;
+// int move = 0;
 
+int numberOfRigids;
 const int numberOfGrids = 20;
 const float gridScale = 10.0f;  // 1.0 = 1 millimiter, 10.0 = 1 centimeters
 const float cameraPosCoef = 1000.0f;
-const Eigen::Vector3f coordinateTextOffset(50, 100, 50);
+const Eigen::Vector3f coordinateTextOffset(50.f, 100.f, 50.f);
 
 std::map<int, Eigen::Vector3f> rigids_map_pos;
 std::map<int, Eigen::Vector3f> rigids_map_ang;
 
-Eigen::Vector3f colorSet[] = {Eigen::Vector3f(0., .4, 1.), Eigen::Vector3f(.4, 1., .2), Eigen::Vector3f(1., .2, 0.), Eigen::Vector3f(1., 0, 1.), Eigen::Vector3f(1., 1., 0.), Eigen::Vector3f(1., .6, 0.), Eigen::Vector3f(.4, .6, 0.), Eigen::Vector3f(.2, .2, .8), Eigen::Vector3f(.4, 1., 1.), Eigen::Vector3f(1., .0, .4)};
+Eigen::Vector3f colorSet[] = {Eigen::Vector3f(0.f, .4f, 1.f), Eigen::Vector3f(.4f, 1.f, .2f), Eigen::Vector3f(1.f, .2f, 0.f), Eigen::Vector3f(1.f, 0.f, 1.f), Eigen::Vector3f(1.f, 1.f, 0.f), Eigen::Vector3f(1.f, .6f, 0.f), Eigen::Vector3f(.4f, .6f, 0.f), Eigen::Vector3f(.2f, .2f, .8f), Eigen::Vector3f(.4f, 1.f, 1.f), Eigen::Vector3f(1.f, 0.f, .4f)};
+
+// render scene with light
+bool LIGHT_FLAG = true;
+// changing the object representation mode true = solid, flase = wireframe
+bool OBJ_MODE_SOLID = true;
+// changing ONLY objects line weight while in the wireframe mode
+const float LINE_WEIGHT = 3.0f;
 
 // Constants -------------------------------------------------------------------
 
@@ -169,7 +176,7 @@ int main(int argc, char* argv[]) {
 void glut_main(int argc, char* argv[]) {
     // void glut_main() {
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_RGB | GLUT_SINGLE);
+    glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
     glutInitWindowSize(WindowWidth, WindowHeight);
     // glutInitWindowPosition(100, 100);
     glutCreateWindow("OptiTrack App");
@@ -939,32 +946,48 @@ void update_camera_location() {
 // Initialize scene ------------------------------------------------------------
 
 void init_scene() {
-    glEnable(GL_DEPTH_TEST);
+    // glEnable(GL_DEPTH_TEST);
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     gluPerspective(45.0, (GLdouble)WindowWidth / (GLdouble)WindowHeight, 1.0, 750.0);
     glMatrixMode(GL_MODELVIEW);
 
-    // adding light
-    // GLfloat diffuse0[] = {0.8, 0.8, 0.8, 1.0};
-    // GLfloat ambient0[] = {0.2, 0.2, 0.2, 1.0};
-    // GLfloat specular0[] = {1.0, 1.0, 1.0, 1.0};
-    // GLfloat position0[] = {100.0, 100.0, 100.0, 1.0};
+    if (LIGHT_FLAG) {
+        // adding light
+        GLfloat diffuse0[] = {0.8, 0.8, 0.8, 1.0};
+        GLfloat ambient0[] = {0.2, 0.2, 0.2, 1.0};
+        GLfloat specular0[] = {1.0, 1.0, 1.0, 1.0};
+        GLfloat position0[] = {100.0, 100.0, 100.0, 1.0};
 
-    // glEnable(GL_LIGHTING);
-    // glEnable(GL_LIGHT0);
+        glEnable(GL_LIGHTING);
+        glEnable(GL_LIGHT0);
 
-    // glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse0);
-    // glLightfv(GL_LIGHT0, GL_AMBIENT, ambient0);
-    // glLightfv(GL_LIGHT0, GL_SPECULAR, specular0);
-    // glLightfv(GL_LIGHT0, GL_POSITION, position0);
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse0);
+        glLightfv(GL_LIGHT0, GL_AMBIENT, ambient0);
+        glLightfv(GL_LIGHT0, GL_SPECULAR, specular0);
+        glLightfv(GL_LIGHT0, GL_POSITION, position0);
 
-    // glEnable(GL_COLOR_MATERIAL);
-    // glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+        glEnable(GL_COLOR_MATERIAL);
+        glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
 
-    // glEnable(GL_NORMALIZE);
-    // glEnable(GL_SMOOTH);
+        glEnable(GL_NORMALIZE);
+        glEnable(GL_SMOOTH);
+        // glPolygonMode(GL_FRONT, GL_FILL);
+        // glPolygonMode(GL_BACK, GL_FILL);
+
+        // glShadeModel(GL_SMOOTH);
+        glEnable(GL_DEPTH_TEST);
+        if (OBJ_MODE_SOLID) {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            glEnable(GL_CULL_FACE);
+        } else {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        }
+        // glShadeModel(GL_FLAT);
+        // glEnable(GL_DEPTH_TEST);
+        // glEnable(GL_CULL_FACE);
+    }
 
     // update camera location
     update_camera_location();
@@ -980,7 +1003,9 @@ void drawObj(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f col, cons
     glRotatef(180 - ang[0], 1, 0, 0);
     glRotatef(180 - ang[1], 0, 1, 0);
     glRotatef(180 - ang[2], 0, 0, 1);
+    if (!OBJ_MODE_SOLID) glLineWidth(LINE_WEIGHT);
     glutSolidCube(100);
+    glLineWidth(.5);
     showCoordinates(pos, ang, textOffset, objID);
     glPopMatrix();
 }
