@@ -28,6 +28,13 @@ Usage [optional]:
         [OutputFilename]	Name of points file (pts) to write out.  defaults to Client-output.pts
 
 */
+////////////////////////////// obj loader
+#include <GL/freeglut.h>
+#include <GL/glext.h>
+#include <time.h>
+
+#include <fstream>
+//////////////////////////////
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include <GL/glut.h>
@@ -42,10 +49,11 @@ Usage [optional]:
 #include <glm/vec3.hpp>
 #include <iostream>
 #include <map>
+#include <memory>  // unique_ptr
 #include <string>
 #include <utility>
 
-#include "omp.h"
+#include "omp.h"  // parallel for loop (using libs=-lgomp and CXXFLAGS=-fopenmp)
 ////////////////////////////////////////////////////////////////////////
 #include <inttypes.h>
 // #include <stdio.h>
@@ -64,19 +72,161 @@ Usage [optional]:
 #include <NatNetTypes.h>
 
 #include <list>
-#include <thread>
+#include <thread>  // multithreading (using libs=-lpthread)
 #include <vector>
 
 #ifndef _WIN32
 char getch();
 #endif
 
+class Model {
+   private:
+    class Face {
+       public:
+        int edge;
+        int* vertices;
+        int* texcoords;
+        int normal;
+
+        Face(int edge, int* vertices, int* texcoords, int normal = -1) {
+            this->edge = edge;
+            this->vertices = vertices;
+            this->texcoords = texcoords;
+            this->normal = normal;
+        }
+    };
+    std::vector<float*> vertices;
+    std::vector<float*> texcoords;
+    std::vector<float*> normals;
+    std::vector<Face> faces;
+    GLuint list;
+
+   public:
+    ~Model() {
+    }
+    void load(const char* filename) {
+        std::string line;
+        std::vector<std::string> lines;
+        std::ifstream in(filename);
+        if (!in.is_open()) {
+            printf("Cannot load model %s\n", filename);
+            return;
+        }
+        while (!in.eof()) {
+            std::getline(in, line);
+            lines.push_back(line);
+        }
+        in.close();
+        float a, b, c;
+        for (std::string& line : lines) {
+            if (line[0] == 'v') {
+                if (line[1] == ' ') {
+                    sscanf(line.c_str(), "v %f %f %f", &a, &b, &c);
+                    vertices.push_back(new float[3]{a, b, c});
+                } else if (line[1] == 't') {
+                    sscanf(line.c_str(), "vt %f %f", &a, &b);
+                    texcoords.push_back(new float[2]{a, b});
+                } else {
+                    sscanf(line.c_str(), "vn %f %f %f", &a, &b, &c);
+                    normals.push_back(new float[3]{a, b, c});
+                }
+            } else if (line[0] == 'f') {
+                int v0, v1, v2, t0, t1, t2, n;
+                sscanf(line.c_str(), "f %d/%d/%d %d/%d/%d %d/%d/%d", &v0, &t0, &n, &v1, &t1, &n, &v2, &t2, &n);
+                int* v = new int[3]{v0 - 1, v1 - 1, v2 - 1};
+                faces.push_back(Face(3, v, NULL, n - 1));
+            }
+        }
+        list = glGenLists(1);
+        glNewList(list, GL_COMPILE);
+        for (Face& face : faces) {
+            if (face.normal != -1)
+                glNormal3fv(normals[face.normal]);
+            else
+                glDisable(GL_LIGHTING);
+            glBegin(GL_POLYGON);
+            for (int i = 0; i < face.edge; i++)
+                glVertex3fv(vertices[face.vertices[i]]);
+            glEnd();
+            if (face.normal == -1)
+                glEnable(GL_LIGHTING);
+        }
+        glEndList();
+        // printf("Model: %s\n", filename);
+        // printf("Vertices: %d\n", vertices.size());
+        // printf("Texcoords: %d\n", texcoords.size());
+        // printf("Normals: %d\n", normals.size());
+        // printf("Faces: %d\n", faces.size());
+        for (float* f : vertices)
+            delete f;
+        vertices.clear();
+        for (float* f : texcoords)
+            delete f;
+        texcoords.clear();
+        for (float* f : normals)
+            delete f;
+        normals.clear();
+        faces.clear();
+    }
+    void draw() { glCallList(list); }
+};
+
+// Model* model;
+std::unique_ptr<Model> model(new Model());
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int WindowWidth = 500;
 int WindowHeight = 500;
 #define M_PIl 3.141592653589793238462643383279502884L
 
+// int coor_accuracy = 6;
+// int move = 0;
+const int numberOfGrids = 20;
+const float gridScale = 10.0f;  // 1.0f = 1 millimiter, 10.0f = 1 centimeters
+const float cameraPosCoef = 1000.0f;
+const Eigen::Vector3f coordinateTextOffset(50.f, 100.f, 50.f);
+
+// render scene with light
+bool isLightOn = true;
+// changing the object representation mode true = solid, flase = wireframe
+bool isSolidModeOn = false;
+// changing ONLY objects line weight while in the wireframe mode
+const float LINE_WEIGHT = 1.0f;
+
+// Constants -------------------------------------------------------------------
+
+#define WHEEL_UP 3
+#define WHEEL_DOWN 4
+#define CAMERA_DISTANCE_MIN 1.0
+#define CAMERA_DISTANCE_MAX 100.0
+
+// Global variables ------------------------------------------------------------
+
+static GLint MouseX = 0;
+static GLint MouseY = 0;
+
+static double CameraLatitude = 45.0;
+static double CameraLongitude = 25.0;
+static double CameraDistance = 50.0;
+
+static double EyeX = 150.0;
+static double EyeY = 150.0;
+static double EyeZ = 150.0;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+int opti_run(int, char**);
+void _WriteHeader(FILE* fp, sDataDescriptions* pBodyDefs);
+void _WriteFrame(FILE* fp, sFrameOfMocapData* data);
+void _WriteFooter(FILE* fp);
+void NATNET_CALLCONV ServerDiscoveredCallback(const sNatNetDiscoveredServer* pDiscoveredServer, void* pUserContext);
+void NATNET_CALLCONV DataHandler(sFrameOfMocapData* data, void* pUserData);  // receives data from the server
+void NATNET_CALLCONV MessageHandler(Verbosity msgType, const char* msg);     // receives NatNet error messages
+void resetClient();
+int ConnectClient();
+
 // static void Timer(int);
+void glut_main(int, char**);
 void anim();
 void drawObj(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f col, const Eigen::Vector3f textOffset, int objID);
 void addObjects(std::map<int, Eigen::Vector3f>*, std::map<int, Eigen::Vector3f>*, const Eigen::Vector3f*);
@@ -91,58 +241,6 @@ void resize(int, int);
 void mouse(int, int, int, int);
 void motion(int, int);
 
-// int coor_accuracy = 6;
-// int move = 0;
-
-int numberOfRigids;
-const int numberOfGrids = 20;
-const float gridScale = 10.0f;  // 1.0 = 1 millimiter, 10.0 = 1 centimeters
-const float cameraPosCoef = 1000.0f;
-const Eigen::Vector3f coordinateTextOffset(50.f, 100.f, 50.f);
-
-std::map<int, Eigen::Vector3f> rigids_map_pos;
-std::map<int, Eigen::Vector3f> rigids_map_ang;
-
-Eigen::Vector3f colorSet[] = {Eigen::Vector3f(0.f, .4f, 1.f), Eigen::Vector3f(.4f, 1.f, .2f), Eigen::Vector3f(1.f, .2f, 0.f), Eigen::Vector3f(1.f, 0.f, 1.f), Eigen::Vector3f(1.f, 1.f, 0.f), Eigen::Vector3f(1.f, .6f, 0.f), Eigen::Vector3f(.4f, .6f, 0.f), Eigen::Vector3f(.2f, .2f, .8f), Eigen::Vector3f(.4f, 1.f, 1.f), Eigen::Vector3f(1.f, 0.f, .4f)};
-
-// render scene with light
-bool LIGHT_FLAG = true;
-// changing the object representation mode true = solid, flase = wireframe
-bool OBJ_MODE_SOLID = true;
-// changing ONLY objects line weight while in the wireframe mode
-const float LINE_WEIGHT = 3.0f;
-
-// Constants -------------------------------------------------------------------
-
-#define WHEEL_UP 3
-#define WHEEL_DOWN 4
-#define CAMERA_DISTANCE_MAX 100.0
-
-// Global variables ------------------------------------------------------------
-
-static GLint MouseX = 0;
-static GLint MouseY = 0;
-
-static double CameraLatitude = 50.0;
-static double CameraLongitude = 50.0;
-static double CameraDistance = 30.0;
-
-static double EyeX = 150.0;
-static double EyeY = 150.0;
-static double EyeZ = 150.0;
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void glut_main(int, char**);
-// void glut_main();
-int opti_main(int, char**);
-void _WriteHeader(FILE* fp, sDataDescriptions* pBodyDefs);
-void _WriteFrame(FILE* fp, sFrameOfMocapData* data);
-void _WriteFooter(FILE* fp);
-void NATNET_CALLCONV ServerDiscoveredCallback(const sNatNetDiscoveredServer* pDiscoveredServer, void* pUserContext);
-void NATNET_CALLCONV DataHandler(sFrameOfMocapData* data, void* pUserData);  // receives data from the server
-void NATNET_CALLCONV MessageHandler(Verbosity msgType, const char* msg);     // receives NatNet error messages
-void resetClient();
-int ConnectClient();
-
 static const ConnectionType kDefaultConnectionType = ConnectionType_Multicast;
 
 NatNetClient* g_pClient = NULL;
@@ -154,26 +252,37 @@ char g_discoveredMulticastGroupAddr[kNatNetIpv4AddrStrLenMax] = NATNET_DEFAULT_M
 int g_analogSamplesPerMocapFrame = 0;
 sServerDescription g_serverDescription;
 
+int numberOfRigids;
+std::map<int, Eigen::Vector3f> rigids_map_pos;
+std::map<int, Eigen::Vector3f> rigids_map_ang;
+Eigen::Vector3f colorSet[] = {Eigen::Vector3f(0.f, .4f, 1.f), Eigen::Vector3f(.4f, 1.f, .2f), Eigen::Vector3f(1.f, .2f, 0.f), Eigen::Vector3f(1.f, 0.f, 1.f), Eigen::Vector3f(1.f, 1.f, 0.f), Eigen::Vector3f(1.f, .6f, 0.f), Eigen::Vector3f(.4f, .6f, 0.f), Eigen::Vector3f(.2f, .2f, .8f), Eigen::Vector3f(.4f, 1.f, 1.f), Eigen::Vector3f(1.f, 0.f, .4f)};
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-int main(int argc, char* argv[]) {
+int main(int argc, char** argv) {
     // glutInit(&argc, argv);
+    // model = new Model();
+
     std::thread t1(glut_main, argc, argv);
 
     // std::thread t1(glut_main);
-    std::thread t2(opti_main, argc, argv);
+    std::thread t2(opti_run, argc, argv);
 
     // glut_main(argc, argv);
 
     // std::thread t3(func);
 
-    // opti_main(argc, argv);
+    // opti_run
+    (argc, argv);
     t1.join();
     t2.join();
     // t3.join();
+
+    // delete model;
+    // model = nullptr;
     return 0;
 }
 
-void glut_main(int argc, char* argv[]) {
+void glut_main(int argc, char** argv) {
     // void glut_main() {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
@@ -194,7 +303,7 @@ void glut_main(int argc, char* argv[]) {
     glutMainLoop();
 }
 
-int opti_main(int argc, char* argv[]) {
+int opti_run(int argc, char** argv) {
     // print version info
     unsigned char ver[4];
     NatNet_GetVersion(ver);
@@ -206,7 +315,7 @@ int opti_main(int argc, char* argv[]) {
     // create NatNet client
     g_pClient = new NatNetClient();
 
-    printf("CREATE CLIENT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1");
+    printf("CREATE CLIENT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 
     // set the frame callback handler
     g_pClient->SetFrameReceivedCallback(DataHandler, g_pClient);  // this function will receive data from the server
@@ -934,11 +1043,11 @@ void update_camera_location() {
     // http://en.wikipedia.org/wiki/List_of_canonical_coordinate_transformations#From_spherical_coordinates
     // and some help from Dr. John Stewman
 
-    double L = CameraDistance * cos(M_PI * CameraLongitude / 180.0);
+    double L = CameraDistance * std::cos(M_PI * CameraLongitude / 180.0);
 
-    EyeX = L * -sin(M_PI * CameraLatitude / 180.0);
-    EyeY = CameraDistance * sin(M_PI * CameraLongitude / 180.0);
-    EyeZ = L * cos(M_PI * CameraLatitude / 180.0);
+    EyeX = L * -std::sin(M_PI * CameraLatitude / 180.0);
+    EyeY = CameraDistance * std::sin(M_PI * CameraLongitude / 180.0);
+    EyeZ = L * std::cos(M_PI * CameraLatitude / 180.0);
 
     glutPostRedisplay();
 }
@@ -953,7 +1062,7 @@ void init_scene() {
     gluPerspective(45.0, (GLdouble)WindowWidth / (GLdouble)WindowHeight, 1.0, 750.0);
     glMatrixMode(GL_MODELVIEW);
 
-    if (LIGHT_FLAG) {
+    if (isLightOn) {
         // adding light
         GLfloat diffuse0[] = {0.8, 0.8, 0.8, 1.0};
         GLfloat ambient0[] = {0.2, 0.2, 0.2, 1.0};
@@ -976,25 +1085,26 @@ void init_scene() {
         // glPolygonMode(GL_FRONT, GL_FILL);
         // glPolygonMode(GL_BACK, GL_FILL);
 
-        // glShadeModel(GL_SMOOTH);
+        glShadeModel(GL_SMOOTH);
+        // glShadeModel(GL_FLAT);
+        // glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
-        if (OBJ_MODE_SOLID) {
+
+        if (isSolidModeOn) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
             glEnable(GL_CULL_FACE);
         } else {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         }
-        // glShadeModel(GL_FLAT);
-        // glEnable(GL_DEPTH_TEST);
-        // glEnable(GL_CULL_FACE);
     }
 
+    model->load("Models/mmm.obj");
     // update camera location
     update_camera_location();
 }
 
-void drawObj(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f col, const Eigen::Vector3f textOffset, int objID) {
-    glColor3f(col[0], col[1], col[2]);
+void drawObj(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f color, const Eigen::Vector3f textOffset, int objID) {
+    glColor3f(color[0], color[1], color[2]);
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     // translation matrix (the reason that we use minus x and z is the in OpenGL the Z axes is towards the screen and the X axes is to the right, despite the Optitrack)
@@ -1003,8 +1113,10 @@ void drawObj(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f col, cons
     glRotatef(180 - ang[0], 1, 0, 0);
     glRotatef(180 - ang[1], 0, 1, 0);
     glRotatef(180 - ang[2], 0, 0, 1);
-    if (!OBJ_MODE_SOLID) glLineWidth(LINE_WEIGHT);
-    glutSolidCube(100);
+    glScalef(100, 100, 100);
+    if (!isSolidModeOn) glLineWidth(LINE_WEIGHT);
+    // glutSolidCube(100);
+    model->draw();
     glLineWidth(.5);
     showCoordinates(pos, ang, textOffset, objID);
     glPopMatrix();
@@ -1149,7 +1261,7 @@ void mouse(int button, int state, int x, int y) {
 
     switch (button) {
         case WHEEL_UP:
-            CameraDistance = (CameraDistance > -CAMERA_DISTANCE_MAX ? CameraDistance - 1.0 : -CAMERA_DISTANCE_MAX);
+            CameraDistance = (CameraDistance > CAMERA_DISTANCE_MIN ? CameraDistance - 1.0 : CAMERA_DISTANCE_MIN);
             break;
         case WHEEL_DOWN:
             CameraDistance = (CameraDistance < CAMERA_DISTANCE_MAX ? CameraDistance + 1.0 : CAMERA_DISTANCE_MAX);
