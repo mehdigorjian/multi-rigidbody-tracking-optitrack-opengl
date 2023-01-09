@@ -187,7 +187,7 @@ const Eigen::Vector3f coordinateTextOffset(50.f, 100.f, 50.f);
 // render scene with light
 bool isLightOn = true;
 // changing the object representation mode true = solid, flase = wireframe
-bool isSolidModeOn = false;
+bool isSolidModeOn = true;
 // changing ONLY objects line weight while in the wireframe mode
 const float LINE_WEIGHT = 1.0f;
 
@@ -203,9 +203,9 @@ const float LINE_WEIGHT = 1.0f;
 static GLint MouseX = 0;
 static GLint MouseY = 0;
 
-static double CameraLatitude = 45.0;
-static double CameraLongitude = 25.0;
-static double CameraDistance = 50.0;
+static double CameraLatitude = 50.0;
+static double CameraLongitude = 50.0;
+static double CameraDistance = 30.0;
 
 static double EyeX = 150.0;
 static double EyeY = 150.0;
@@ -226,6 +226,7 @@ int ConnectClient();
 // static void Timer(int);
 void glut_main(int, char**);
 void anim();
+void showCoordinates(Eigen::Vector3f, Eigen::Vector3f, const Eigen::Vector3f, int);
 void drawObj(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f col, const Eigen::Vector3f textOffset, int objID);
 void addObjects(std::map<int, Eigen::Vector3f>*, std::map<int, Eigen::Vector3f>*, const Eigen::Vector3f*);
 void draw_axis();
@@ -1037,12 +1038,7 @@ void draw_grid() {
 // Update camera ---------------------------------------------------------------
 
 void update_camera_location() {
-    // Based on some magical math:
-    // http://en.wikipedia.org/wiki/List_of_canonical_coordinate_transformations#From_spherical_coordinates
-    // and some help from Dr. John Stewman
-
     double L = CameraDistance * std::cos(M_PI * CameraLongitude / 180.0);
-
     EyeX = L * -std::sin(M_PI * CameraLatitude / 180.0);
     EyeY = CameraDistance * std::sin(M_PI * CameraLongitude / 180.0);
     EyeZ = L * std::cos(M_PI * CameraLatitude / 180.0);
@@ -1111,10 +1107,14 @@ void drawObj(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f color, co
     glRotatef(180 - ang[0], 1, 0, 0);
     glRotatef(180 - ang[1], 0, 1, 0);
     glRotatef(180 - ang[2], 0, 0, 1);
+
+    glPushMatrix();
     glScalef(100, 100, 100);
     if (!isSolidModeOn) glLineWidth(LINE_WEIGHT);
     // glutSolidCube(100);
     model->draw();
+    glPopMatrix();
+
     glLineWidth(.5);
     showCoordinates(pos, ang, textOffset, objID);
     glPopMatrix();
@@ -1123,12 +1123,14 @@ void drawObj(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f color, co
 void addObjects(std::map<int, Eigen::Vector3f>* rigids_map_pos, std::map<int, Eigen::Vector3f>* rigids_map_ang, const Eigen::Vector3f* coorTextOffset) {
     // int th_id;
 #pragma omp parallel
-    for (int i = 1; i <= numberOfRigids; i++) {
-        // Eigen::Vector3f color(static_cast<float>(i) / static_cast<float>(numberOfRigids), 1.0 - static_cast<float>(i) / static_cast<float>(numberOfRigids), static_cast<float>(i) / 10.0);
-        Eigen::Vector3f color = colorSet[i - 1];
-        // th_id = omp_get_thread_num();
-        // printf("=> thread id: %i\t", th_id);
-        drawObj((*rigids_map_pos)[i], (*rigids_map_ang)[i], color, *coorTextOffset, i);
+    {
+        for (int i = 1; i <= numberOfRigids; i++) {
+            // Eigen::Vector3f color(static_cast<float>(i) / static_cast<float>(numberOfRigids), 1.0 - static_cast<float>(i) / static_cast<float>(numberOfRigids), static_cast<float>(i) / 10.0);
+            Eigen::Vector3f color = colorSet[i - 1];
+            // th_id = omp_get_thread_num();
+            // printf("=> thread id: %i\t", th_id);
+            drawObj((*rigids_map_pos)[i], (*rigids_map_ang)[i], color, *coorTextOffset, i);
+        }
     }
 }
 
