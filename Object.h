@@ -2,6 +2,8 @@
 #define OBJECT_H
 #include <eigen3/Eigen/Geometry>
 #include <string>
+
+#include "Model.h"
 class Object {
    private:
     Eigen::Vector3f scale;
@@ -11,6 +13,8 @@ class Object {
     Eigen::Vector3f rotation;
     Eigen::Vector3f color;
     const char* objFilePath;
+    Model* modelLoaded;
+
     Eigen::Vector3f colorSet[10] = {Eigen::Vector3f(0.f, .4f, 1.f), Eigen::Vector3f(.4f, 1.f, .2f),
                                     Eigen::Vector3f(1.f, .2f, 0.f), Eigen::Vector3f(1.f, 0.f, 1.f), Eigen::Vector3f(1.f, 1.f, 0.f),
                                     Eigen::Vector3f(1.f, .6f, 0.f), Eigen::Vector3f(.4f, .6f, 0.f), Eigen::Vector3f(.2f, .2f, .8f),
@@ -25,9 +29,11 @@ class Object {
 };
 
 Object::Object() {
+    // modelLoaded = new Model();
 }
 
 Object::~Object() {
+    // delete modelLoaded;
 }
 
 void Object::setScale(Eigen::Vector3f sc) {

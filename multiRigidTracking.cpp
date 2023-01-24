@@ -979,10 +979,12 @@ void init_scene() {
         }
     }
 
-    for (int i = 0; i < numberOfRigids; i++) {
+    for (int i = 1; i <= numberOfRigids; i++) {
         Model* model = new Model();
-        model->load(paths[i]);
-        modelMaps[i] = std::move(model);
+        model->load(paths[i - 1]);
+        // modelMaps[i] = std::move(model);
+
+        rigidObjectsMap[i]->modelLoaded = std::move(model);
     }
     // model->load("Models/mmm.obj");
     // model1->load(paths[0]);
@@ -1015,7 +1017,8 @@ void drawObj(Object* obj, const Eigen::Vector3f textOffset, int objID) {
     glScalef(100, 100, 100);
     if (!isSolidModeOn) glLineWidth(LINE_WEIGHT);
     // glutSolidCube(100);
-    modelMaps[objID - 1]->draw();
+    rigidObjectsMap[objID]->modelLoaded->draw();
+    // modelMaps[objID - 1]->draw();
     // model->draw();
     glPopMatrix();
 
