@@ -1,33 +1,3 @@
-/*
-Copyright © 2012 NaturalPoint Inc.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License. */
-
-/*
-
-SampleClient.cpp
-
-This program connects to a NatNet server, receives a data stream, and writes that data stream
-to an ascii file.  The purpose is to illustrate using the NatNetClient class.
-
-Usage [optional]:
-
-        SampleClient [ServerIP] [LocalIP] [OutputFilename]
-
-        [ServerIP]			IP address of the server (e.g. 192.168.0.107) ( defaults to local machine)
-        [OutputFilename]	Name of points file (pts) to write out.  defaults to Client-output.pts
-
-*/
 ////////////////////////////// obj loader
 #include <GL/freeglut.h>
 #include <GL/glext.h>
@@ -73,105 +43,23 @@ Usage [optional]:
 #include <thread>  // multithreading (using libs=-lpthread)
 #include <vector>
 
+#include "Model.h"
+#include "Object.h"
+
 #ifndef _WIN32
 char getch();
 #endif
 
-class Model {
-   private:
-    class Face {
-       public:
-        int edge;
-        int* vertices;
-        int* texcoords;
-        int normal;
+// std::unique_ptr<Model> model(new Model());
 
-        Face(int edge, int* vertices, int* texcoords, int normal = -1) {
-            this->edge = edge;
-            this->vertices = vertices;
-            this->texcoords = texcoords;
-            this->normal = normal;
-        }
-    };
-    std::vector<float*> vertices;
-    std::vector<float*> texcoords;
-    std::vector<float*> normals;
-    std::vector<Face> faces;
-    GLuint list;
+// Model* model1(new Model());
+// Model* model2(new Model());
+// Model* model3(new Model());
+// Model* model4(new Model());
 
-   public:
-    ~Model() {
-    }
-    void load(const char* filename) {
-        std::string line;
-        std::vector<std::string> lines;
-        std::ifstream in(filename);
-        if (!in.is_open()) {
-            printf("Cannot load model %s\n", filename);
-            return;
-        }
-        while (!in.eof()) {
-            std::getline(in, line);
-            lines.push_back(line);
-        }
-        in.close();
-        float a, b, c;
-        for (std::string& line : lines) {
-            if (line[0] == 'v') {
-                if (line[1] == ' ') {
-                    sscanf(line.c_str(), "v %f %f %f", &a, &b, &c);
-                    vertices.push_back(new float[3]{a, b, c});
-                } else if (line[1] == 't') {
-                    sscanf(line.c_str(), "vt %f %f", &a, &b);
-                    texcoords.push_back(new float[2]{a, b});
-                } else {
-                    sscanf(line.c_str(), "vn %f %f %f", &a, &b, &c);
-                    normals.push_back(new float[3]{a, b, c});
-                }
-            } else if (line[0] == 'f') {
-                int v0, v1, v2, t0, t1, t2, n;
-                sscanf(line.c_str(), "f %d/%d/%d %d/%d/%d %d/%d/%d", &v0, &t0, &n, &v1, &t1, &n, &v2, &t2, &n);
-                int* v = new int[3]{v0 - 1, v1 - 1, v2 - 1};
-                faces.push_back(Face(3, v, NULL, n - 1));
-            }
-        }
-        list = glGenLists(1);
-        glNewList(list, GL_COMPILE);
-        for (Face& face : faces) {
-            if (face.normal != -1)
-                glNormal3fv(normals[face.normal]);
-            else
-                glDisable(GL_LIGHTING);
-            glBegin(GL_POLYGON);
-            for (int i = 0; i < face.edge; i++)
-                glVertex3fv(vertices[face.vertices[i]]);
-            glEnd();
-            if (face.normal == -1)
-                glEnable(GL_LIGHTING);
-        }
-        glEndList();
-        // printf("Model: %s\n", filename);
-        // printf("Vertices: %d\n", vertices.size());
-        // printf("Texcoords: %d\n", texcoords.size());
-        // printf("Normals: %d\n", normals.size());
-        // printf("Faces: %d\n", faces.size());
-        for (float* f : vertices)
-            delete f;
-        vertices.clear();
-        for (float* f : texcoords)
-            delete f;
-        texcoords.clear();
-        for (float* f : normals)
-            delete f;
-        normals.clear();
-        faces.clear();
-    }
-    void draw() { glCallList(list); }
-};
+std::map<int, Model*> modelMaps;
 
-// Model* model;
-std::unique_ptr<Model> model(new Model());
-
+const char* paths[] = {"Models/mmm.obj", "Models/cone.obj", "Models/cube.obj", "Models/cylinder.obj"};
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int WindowWidth = 500;
 int WindowHeight = 500;
@@ -226,9 +114,8 @@ int ConnectClient();
 // static void Timer(int);
 void glut_main(int, char**);
 void anim();
-void showCoordinates(Eigen::Vector3f, Eigen::Vector3f, const Eigen::Vector3f, int);
-void drawObj(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f col, const Eigen::Vector3f textOffset, int objID);
-void addObjects(std::map<int, Eigen::Vector3f>*, std::map<int, Eigen::Vector3f>*, const Eigen::Vector3f*);
+void drawObj(Object* obj, const Eigen::Vector3f textOffset, int objID);
+void addObjects(std::map<int, Object*> rigidObjectsMap, const Eigen::Vector3f* coorTextOffset);
 void draw_axis();
 void drawText(char*, float, float, float);
 void showCoordinates(Eigen::Vector3f, Eigen::Vector3f, const Eigen::Vector3f, int);
@@ -252,29 +139,15 @@ int g_analogSamplesPerMocapFrame = 0;
 sServerDescription g_serverDescription;
 
 int numberOfRigids;
-std::map<int, Eigen::Vector3f> rigids_map_pos;
-std::map<int, Eigen::Vector3f> rigids_map_ang;
-Eigen::Vector3f colorSet[] = {Eigen::Vector3f(0.f, .4f, 1.f), Eigen::Vector3f(.4f, 1.f, .2f), Eigen::Vector3f(1.f, .2f, 0.f), Eigen::Vector3f(1.f, 0.f, 1.f), Eigen::Vector3f(1.f, 1.f, 0.f), Eigen::Vector3f(1.f, .6f, 0.f), Eigen::Vector3f(.4f, .6f, 0.f), Eigen::Vector3f(.2f, .2f, .8f), Eigen::Vector3f(.4f, 1.f, 1.f), Eigen::Vector3f(1.f, 0.f, .4f)};
+std::map<int, Object*> rigidObjectsMap;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char** argv) {
-    // glutInit(&argc, argv);
-    // model = new Model();
+    std::thread t1(opti_run, argc, argv);
+    std::thread t2(glut_main, argc, argv);
 
-    std::thread t1(glut_main, argc, argv);
-
-    // std::thread t1(glut_main);
-    std::thread t2(opti_run, argc, argv);
-
-    // glut_main(argc, argv);
-
-    // std::thread t3(func);
-
-    // opti_run
-    (argc, argv);
     t1.join();
     t2.join();
-    // t3.join();
 
     // delete model;
     // model = nullptr;
@@ -750,8 +623,11 @@ void NATNET_CALLCONV DataHandler(sFrameOfMocapData* data, void* pUserData) {
     NatNet_TimecodeStringify(data->Timecode, data->TimecodeSubframe, szTimecode, 128);
     printf("Timecode : %s\n", szTimecode);
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Rigid Bodies
     numberOfRigids = data->nRigidBodies;
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     printf("Rigid Bodies [Count=%d]\n", data->nRigidBodies);
     for (i = 0; i < data->nRigidBodies; i++) {
         // params
@@ -770,10 +646,17 @@ void NATNET_CALLCONV DataHandler(sFrameOfMocapData* data, void* pUserData) {
                data->RigidBodies[i].qw);
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        Eigen::Vector3f current_pos(data->RigidBodies[i].x, data->RigidBodies[i].y, data->RigidBodies[i].z);
-        rigids_map_pos[data->RigidBodies[i].ID] = current_pos;
+        // initializing object
+        Object* obj;
+        if (!rigidObjectsMap[data->RigidBodies[i].ID]) {
+            obj = new Object();
+        } else {
+            obj = std::move(rigidObjectsMap[data->RigidBodies[i].ID]);
+        }
+        // Object* obj = new Object();
 
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // updating object position
+        obj->position = {data->RigidBodies[i].x, data->RigidBodies[i].y, data->RigidBodies[i].z};
         // converting the Quaternion rotation to the Euler rotation
         Eigen::Quaternionf qq;
         qq.x() = data->RigidBodies[i].qx;
@@ -782,9 +665,13 @@ void NATNET_CALLCONV DataHandler(sFrameOfMocapData* data, void* pUserData) {
         qq.w() = data->RigidBodies[i].qw;
 
         Eigen::Vector3f euler = qq.toRotationMatrix().eulerAngles(0, 1, 2);
-        euler = euler * 180 / M_PI;
+        // updating object rotation
+        obj->rotation = euler * 180 / M_PI;
         // std::cout << "Euler from quaternion in roll, pitch, yaw" << std::endl << euler << std::endl;
-        rigids_map_ang[data->RigidBodies[i].ID] = euler;
+        // adding object to the Map using the (key = ID) and (value = obj)
+        rigidObjectsMap[data->RigidBodies[i].ID] = std::move(obj);
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     }
 
     // Skeletons
@@ -1092,44 +979,59 @@ void init_scene() {
         }
     }
 
-    model->load("Models/mmm.obj");
+    for (int i = 0; i < numberOfRigids; i++) {
+        Model* model = new Model();
+        model->load(paths[i]);
+        modelMaps[i] = std::move(model);
+    }
+    // model->load("Models/mmm.obj");
+    // model1->load(paths[0]);
+    // model2->load(paths[1]);
+    // model3->load(paths[2]);
+    // model4->load(paths[3]);
+
+    // modelMaps[0] = model1;
+    // modelMaps[1] = model2;
+    // modelMaps[2] = model3;
+    // modelMaps[3] = model4;
+
     // update camera location
     update_camera_location();
 }
 
-void drawObj(Eigen::Vector3f pos, Eigen::Vector3f ang, Eigen::Vector3f color, const Eigen::Vector3f textOffset, int objID) {
-    glColor3f(color[0], color[1], color[2]);
+void drawObj(Object* obj, const Eigen::Vector3f textOffset, int objID) {
+    obj->color = obj->colorSet[objID % 10];
+    glColor3f(obj->color[0], obj->color[1], obj->color[2]);
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     // translation matrix (the reason that we use minus x and z is the in OpenGL the Z axes is towards the screen and the X axes is to the right, despite the Optitrack)
-    glTranslatef(-pos[0] * cameraPosCoef, pos[1] * cameraPosCoef, -pos[2] * cameraPosCoef);
+    glTranslatef(-obj->position[0] * cameraPosCoef, obj->position[1] * cameraPosCoef, -obj->position[2] * cameraPosCoef);
     // rotation matrices
-    glRotatef(180 - ang[0], 1, 0, 0);
-    glRotatef(180 - ang[1], 0, 1, 0);
-    glRotatef(180 - ang[2], 0, 0, 1);
+    glRotatef(180 - obj->rotation[0], 1, 0, 0);
+    glRotatef(180 - obj->rotation[1], 0, 1, 0);
+    glRotatef(180 - obj->rotation[2], 0, 0, 1);
 
     glPushMatrix();
     glScalef(100, 100, 100);
     if (!isSolidModeOn) glLineWidth(LINE_WEIGHT);
     // glutSolidCube(100);
-    model->draw();
+    modelMaps[objID - 1]->draw();
+    // model->draw();
     glPopMatrix();
 
     glLineWidth(.5);
-    showCoordinates(pos, ang, textOffset, objID);
+    showCoordinates(obj->position, obj->rotation, textOffset, objID);
     glPopMatrix();
 }
 
-void addObjects(std::map<int, Eigen::Vector3f>* rigids_map_pos, std::map<int, Eigen::Vector3f>* rigids_map_ang, const Eigen::Vector3f* coorTextOffset) {
+void addObjects(std::map<int, Object*> rigObjsMap, const Eigen::Vector3f* coorTextOffset) {
     // int th_id;
 #pragma omp parallel
     {
         for (int i = 1; i <= numberOfRigids; i++) {
-            // Eigen::Vector3f color(static_cast<float>(i) / static_cast<float>(numberOfRigids), 1.0 - static_cast<float>(i) / static_cast<float>(numberOfRigids), static_cast<float>(i) / 10.0);
-            Eigen::Vector3f color = colorSet[i - 1];
             // th_id = omp_get_thread_num();
             // printf("=> thread id: %i\t", th_id);
-            drawObj((*rigids_map_pos)[i], (*rigids_map_ang)[i], color, *coorTextOffset, i);
+            drawObj(rigObjsMap[i], *coorTextOffset, i);
         }
     }
 }
@@ -1165,7 +1067,7 @@ void display() {
     draw_axis();
     draw_grid();
 
-    addObjects(&rigids_map_pos, &rigids_map_ang, &coordinateTextOffset);
+    addObjects(rigidObjectsMap, &coordinateTextOffset);
 
     glutSwapBuffers();
 }
