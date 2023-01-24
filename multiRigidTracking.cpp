@@ -57,7 +57,7 @@ char getch();
 // Model* model3(new Model());
 // Model* model4(new Model());
 
-std::map<int, Model*> modelMaps;
+// std::map<int, Model*> modelMaps;
 
 const char* paths[] = {"Models/mmm.obj", "Models/cone.obj", "Models/cube.obj", "Models/cylinder.obj"};
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -149,13 +149,13 @@ int main(int argc, char** argv) {
     t1.join();
     t2.join();
 
-    // delete model;
-    // model = nullptr;
+    for (int i = 0; i < numberOfRigids; i++)
+        delete rigidObjectsMap[i];
+
     return 0;
 }
 
 void glut_main(int argc, char** argv) {
-    // void glut_main() {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
     glutInitWindowSize(WindowWidth, WindowHeight);
@@ -980,6 +980,7 @@ void init_scene() {
     }
 
     for (int i = 1; i <= numberOfRigids; i++) {
+        rigidObjectsMap[i]->objFilePath = paths[i - 1];
         Model* model = new Model();
         model->load(paths[i - 1]);
         // modelMaps[i] = std::move(model);
