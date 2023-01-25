@@ -13,7 +13,7 @@ class Object {
     Eigen::Vector3f rotation;
     Eigen::Vector3f color;
     const char* objFilePath;
-    Model* modelLoaded;
+    std::shared_ptr<Model> modelLoaded;
 
     Eigen::Vector3f colorSet[10] = {Eigen::Vector3f(0.f, .4f, 1.f), Eigen::Vector3f(.4f, 1.f, .2f),
                                     Eigen::Vector3f(1.f, .2f, 0.f), Eigen::Vector3f(1.f, 0.f, 1.f), Eigen::Vector3f(1.f, 1.f, 0.f),
@@ -29,11 +29,9 @@ class Object {
 };
 
 Object::Object() {
-    // modelLoaded = new Model();
 }
 
 Object::~Object() {
-    // delete modelLoaded;
 }
 
 void Object::setScale(Eigen::Vector3f sc) {

@@ -50,15 +50,6 @@
 char getch();
 #endif
 
-// std::unique_ptr<Model> model(new Model());
-
-// Model* model1(new Model());
-// Model* model2(new Model());
-// Model* model3(new Model());
-// Model* model4(new Model());
-
-// std::map<int, Model*> modelMaps;
-
 const char* paths[] = {"Models/mmm.obj", "Models/cone.obj", "Models/cube.obj", "Models/cylinder.obj"};
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int WindowWidth = 500;
@@ -102,20 +93,20 @@ static double EyeZ = 150.0;
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int opti_run(int, char**);
-void _WriteHeader(FILE* fp, sDataDescriptions* pBodyDefs);
-void _WriteFrame(FILE* fp, sFrameOfMocapData* data);
-void _WriteFooter(FILE* fp);
-void NATNET_CALLCONV ServerDiscoveredCallback(const sNatNetDiscoveredServer* pDiscoveredServer, void* pUserContext);
-void NATNET_CALLCONV DataHandler(sFrameOfMocapData* data, void* pUserData);  // receives data from the server
-void NATNET_CALLCONV MessageHandler(Verbosity msgType, const char* msg);     // receives NatNet error messages
+void _WriteHeader(FILE*, sDataDescriptions*);
+void _WriteFrame(FILE*, sFrameOfMocapData*);
+void _WriteFooter(FILE*);
+void NATNET_CALLCONV ServerDiscoveredCallback(const sNatNetDiscoveredServer*, void*);
+void NATNET_CALLCONV DataHandler(sFrameOfMocapData*, void*);  // receives data from the server
+void NATNET_CALLCONV MessageHandler(Verbosity, const char*);  // receives NatNet error messages
 void resetClient();
 int ConnectClient();
 
 // static void Timer(int);
 void glut_main(int, char**);
 void anim();
-void drawObj(Object* obj, const Eigen::Vector3f textOffset, int objID);
-void addObjects(std::map<int, Object*> rigidObjectsMap, const Eigen::Vector3f* coorTextOffset);
+void drawObj(std::shared_ptr<Object>, const Eigen::Vector3f, int);
+void addObjects(std::map<int, std::shared_ptr<Object>>&, const Eigen::Vector3f*);
 void draw_axis();
 void drawText(char*, float, float, float);
 void showCoordinates(Eigen::Vector3f, Eigen::Vector3f, const Eigen::Vector3f, int);
@@ -139,7 +130,7 @@ int g_analogSamplesPerMocapFrame = 0;
 sServerDescription g_serverDescription;
 
 int numberOfRigids;
-std::map<int, Object*> rigidObjectsMap;
+std::map<int, std::shared_ptr<Object>> rigidObjectsMap;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char** argv) {
@@ -148,10 +139,6 @@ int main(int argc, char** argv) {
 
     t1.join();
     t2.join();
-
-    for (int i = 0; i < numberOfRigids; i++)
-        delete rigidObjectsMap[i];
-
     return 0;
 }
 
@@ -647,11 +634,11 @@ void NATNET_CALLCONV DataHandler(sFrameOfMocapData* data, void* pUserData) {
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // initializing object
-        Object* obj;
+        std::shared_ptr<Object> obj;
         if (!rigidObjectsMap[data->RigidBodies[i].ID]) {
-            obj = new Object();
+            obj = std::make_shared<Object>();
         } else {
-            obj = std::move(rigidObjectsMap[data->RigidBodies[i].ID]);
+            obj = rigidObjectsMap[data->RigidBodies[i].ID];
         }
         // Object* obj = new Object();
 
@@ -669,7 +656,7 @@ void NATNET_CALLCONV DataHandler(sFrameOfMocapData* data, void* pUserData) {
         obj->rotation = euler * 180 / M_PI;
         // std::cout << "Euler from quaternion in roll, pitch, yaw" << std::endl << euler << std::endl;
         // adding object to the Map using the (key = ID) and (value = obj)
-        rigidObjectsMap[data->RigidBodies[i].ID] = std::move(obj);
+        rigidObjectsMap[data->RigidBodies[i].ID] = obj;
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     }
@@ -981,28 +968,17 @@ void init_scene() {
 
     for (int i = 1; i <= numberOfRigids; i++) {
         rigidObjectsMap[i]->objFilePath = paths[i - 1];
-        Model* model = new Model();
+        std::shared_ptr<Model> model = std::make_shared<Model>();
         model->load(paths[i - 1]);
-        // modelMaps[i] = std::move(model);
 
-        rigidObjectsMap[i]->modelLoaded = std::move(model);
+        rigidObjectsMap[i]->modelLoaded = model;
     }
-    // model->load("Models/mmm.obj");
-    // model1->load(paths[0]);
-    // model2->load(paths[1]);
-    // model3->load(paths[2]);
-    // model4->load(paths[3]);
-
-    // modelMaps[0] = model1;
-    // modelMaps[1] = model2;
-    // modelMaps[2] = model3;
-    // modelMaps[3] = model4;
 
     // update camera location
     update_camera_location();
 }
 
-void drawObj(Object* obj, const Eigen::Vector3f textOffset, int objID) {
+void drawObj(std::shared_ptr<Object> obj, const Eigen::Vector3f textOffset, int objID) {
     obj->color = obj->colorSet[objID % 10];
     glColor3f(obj->color[0], obj->color[1], obj->color[2]);
     glMatrixMode(GL_MODELVIEW);
@@ -1019,8 +995,6 @@ void drawObj(Object* obj, const Eigen::Vector3f textOffset, int objID) {
     if (!isSolidModeOn) glLineWidth(LINE_WEIGHT);
     // glutSolidCube(100);
     rigidObjectsMap[objID]->modelLoaded->draw();
-    // modelMaps[objID - 1]->draw();
-    // model->draw();
     glPopMatrix();
 
     glLineWidth(.5);
@@ -1028,7 +1002,7 @@ void drawObj(Object* obj, const Eigen::Vector3f textOffset, int objID) {
     glPopMatrix();
 }
 
-void addObjects(std::map<int, Object*> rigObjsMap, const Eigen::Vector3f* coorTextOffset) {
+void addObjects(std::map<int, std::shared_ptr<Object>>& rigObjsMap, const Eigen::Vector3f* coorTextOffset) {
     // int th_id;
 #pragma omp parallel
     {
