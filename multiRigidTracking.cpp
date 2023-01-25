@@ -640,7 +640,6 @@ void NATNET_CALLCONV DataHandler(sFrameOfMocapData* data, void* pUserData) {
         } else {
             obj = rigidObjectsMap[data->RigidBodies[i].ID];
         }
-        // Object* obj = new Object();
 
         // updating object position
         obj->position = {data->RigidBodies[i].x, data->RigidBodies[i].y, data->RigidBodies[i].z};
