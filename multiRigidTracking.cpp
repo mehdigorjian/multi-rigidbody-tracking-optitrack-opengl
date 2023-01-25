@@ -1,30 +1,21 @@
-////////////////////////////// obj loader
-#include <GL/freeglut.h>
-#include <GL/glext.h>
-#include <time.h>
-
-#include <fstream>
-//////////////////////////////
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include <GL/glut.h>
-#include <string.h>
 
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
-#include <ctime>
+// #include <ctime>
 #include <eigen3/Eigen/Geometry>
-#include <glm/geometric.hpp>
-#include <glm/vec3.hpp>
-#include <iostream>
+#include <fstream>
+// #include <iostream>
 #include <map>
 #include <memory>  // unique_ptr
 #include <string>
 #include <utility>
 
 #include "omp.h"  // parallel for loop (using libs=-lgomp and CXXFLAGS=-fopenmp)
-////////////////////////////////////////////////////////////////////////
+//////////////////// NatNet include packages
 #include <inttypes.h>
 #include <string.h>
 
@@ -39,7 +30,6 @@
 #include <NatNetClient.h>
 #include <NatNetTypes.h>
 
-#include <list>
 #include <thread>  // multithreading (using libs=-lpthread)
 #include <vector>
 
@@ -968,7 +958,7 @@ void init_scene() {
     for (int i = 1; i <= numberOfRigids; i++) {
         rigidObjectsMap[i]->objFilePath = paths[i - 1];
         std::shared_ptr<Model> model = std::make_shared<Model>();
-        model->load(paths[i - 1]);
+        model->load(rigidObjectsMap[i]->objFilePath);
 
         rigidObjectsMap[i]->modelLoaded = model;
     }
