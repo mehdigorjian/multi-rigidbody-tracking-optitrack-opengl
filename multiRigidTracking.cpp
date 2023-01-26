@@ -17,7 +17,7 @@
 #include "omp.h"  // parallel for loop (using libs=-lgomp and CXXFLAGS=-fopenmp)
 //////////////////// NatNet include packages
 #include <inttypes.h>
-#include <string.h>
+// #include <string.h>
 
 #ifdef _WIN32
 #include <conio.h>
