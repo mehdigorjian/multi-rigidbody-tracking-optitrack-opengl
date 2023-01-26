@@ -1,5 +1,5 @@
-#include <GL/gl.h>
-#include <GL/glu.h>
+// #include <GL/gl.h>
+// #include <GL/glu.h>
 #include <GL/glut.h>
 
 #include <cmath>
@@ -40,7 +40,8 @@
 char getch();
 #endif
 
-const char* paths[] = {"Models/mmm.obj", "Models/cone.obj", "Models/cube.obj", "Models/cylinder.obj"};
+// const char* paths[] = {"Models/mmm.obj", "Models/cone.obj", "Models/cube.obj", "Models/cylinder.obj"};
+std::vector<const char*> paths = {"Models/mmm.obj", "Models/cone.obj", "Models/cube.obj", "Models/cylinder.obj"};
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int WindowWidth = 500;
 int WindowHeight = 500;
