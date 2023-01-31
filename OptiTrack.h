@@ -16,7 +16,6 @@
 #include <utility>
 #include <vector>
 
-#include "Model.h"
 #include "Object.h"
 #include "cameras.h"
 #include "omp.h"  // parallel for loop (using libs=-lgomp and CXXFLAGS=-fopenmp)

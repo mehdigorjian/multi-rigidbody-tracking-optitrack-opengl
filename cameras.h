@@ -1,23 +1,18 @@
 #ifndef CAMERAS_H
 #define CAMERAS_H
-#include <GL/glut.h>
 
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
-// #include <ctime>
 #include <eigen3/Eigen/Geometry>
 #include <fstream>
-// #include <iostream>
 #include <map>
 #include <memory>  // unique_ptr and shared_ptr
 #include <string>
 #include <utility>
 
-#include "omp.h"  // parallel for loop (using libs=-lgomp and CXXFLAGS=-fopenmp)
 //////////////////// NatNet include packages
 #include <inttypes.h>
-// #include <string.h>
 
 #ifdef _WIN32
 #include <conio.h>
@@ -30,10 +25,8 @@
 #include <NatNetClient.h>
 #include <NatNetTypes.h>
 
-#include <thread>  // multithreading (using libs=-lpthread)
 #include <vector>
 
-#include "Model.h"
 #include "Object.h"
 
 namespace cam {
