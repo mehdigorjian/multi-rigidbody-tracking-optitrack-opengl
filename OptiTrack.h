@@ -45,6 +45,7 @@ class OptiTrack {
     void run(int argc, char** argv);
     void drawObj(std::shared_ptr<Object>, const Eigen::Vector3f, int);
     void addObjects(std::map<int, std::shared_ptr<Object>>&, const Eigen::Vector3f*);
+    void uploadModels(std::vector<const char*> modelPaths);
     void drawText(char*, float, float, float);
     void showCoordinates(Eigen::Vector3f, Eigen::Vector3f, const Eigen::Vector3f, int);
 };
@@ -57,6 +58,16 @@ OptiTrack::~OptiTrack() {
 
 void OptiTrack::run(int argc, char** argv) {
     cam::opti_run(argc, argv);
+}
+
+void OptiTrack::uploadModels(std::vector<const char*> modelPaths) {
+    for (int i = 1; i <= numRigids; i++) {
+        rigidObjects[i]->objFilePath = modelPaths[i - 1];
+        std::shared_ptr<Model> model = std::make_shared<Model>();
+        model->load(rigidObjects[i]->objFilePath);
+
+        rigidObjects[i]->modelLoaded = model;
+    }
 }
 
 void OptiTrack::drawText(char* s, float x, float y, float z) {

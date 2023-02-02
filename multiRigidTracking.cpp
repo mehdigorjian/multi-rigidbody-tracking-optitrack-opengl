@@ -1,4 +1,9 @@
+#ifdef __APPLE__
+#include <GLUT/glut.h>
+#else
+#include <GL/freeglut.h>
 #include <GL/glut.h>
+#endif
 
 #include <cmath>
 #include <cstdio>
@@ -222,13 +227,14 @@ void init_scene() {
     }
 
     //////////////////////////////////////////////////////////////////////////// uploading objects from vector data structure
-    for (int i = 1; i <= opti->numRigids; i++) {
-        (opti->rigidObjects)[i]->objFilePath = paths[i - 1];
-        std::shared_ptr<Model> model = std::make_shared<Model>();
-        model->load((opti->rigidObjects[i])->objFilePath);
-
-        (opti->rigidObjects[i])->modelLoaded = model;
-    }
+    opti->uploadModels(paths);
+    // for (int i = 1; i <= opti->numRigids; i++) {
+    //     (opti->rigidObjects)[i]->objFilePath = paths[i - 1];
+    //     std::shared_ptr<Model> model = std::make_shared<Model>();
+    //     model->load((opti->rigidObjects[i])->objFilePath);
+    //
+    //    (opti->rigidObjects[i])->modelLoaded = model;
+    // }
     ////////////////////////////////////////////////////////////////////////////
 
     // update camera location
