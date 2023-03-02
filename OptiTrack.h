@@ -31,7 +31,6 @@ class OptiTrack {
     // int move = 0;
     const int numberOfGrids = 20;
     const float gridScale = 10.0f;  // 1.0f = 1 millimiter, 10.0f = 1 centimeters
-    const float cameraPosCoef = 1000.0f;
     const Eigen::Vector3f coordinateTextOffset = {50.f, 100.f, 50.f};
 
     // changing the object representation mode true = solid, flase = wireframe
@@ -138,11 +137,11 @@ void OptiTrack::drawObj(std::shared_ptr<Object> obj, const Eigen::Vector3f textO
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     // translation matrix (the reason that we use minus x and z is the in OpenGL the Z axes is towards the screen and the X axes is to the right, despite the OptiTracktrack)
-    glTranslatef(-obj->position[0] * cameraPosCoef, obj->position[1] * cameraPosCoef, -obj->position[2] * cameraPosCoef);
+    glTranslatef(-obj->position[0], obj->position[1], -obj->position[2]);
     // rotation matrices
-    glRotatef(180 - obj->rotation[0], 1, 0, 0);
-    glRotatef(180 - obj->rotation[1], 0, 1, 0);
-    glRotatef(180 - obj->rotation[2], 0, 0, 1);
+    glRotatef(obj->rotation[0], 1, 0, 0);
+    glRotatef(obj->rotation[1], 0, 1, 0);
+    glRotatef(obj->rotation[2], 0, 0, 1);
 
     glPushMatrix();
     glScalef(100, 100, 100);

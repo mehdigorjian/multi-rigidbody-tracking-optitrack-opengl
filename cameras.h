@@ -50,6 +50,7 @@ sServerDescription g_serverDescription;
 
 int numberOfRigids;
 std::map<int, std::shared_ptr<Object>> rigidObjectsMap;
+const float cameraPosCoef = 1000.0f;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// method signature
 
@@ -545,7 +546,7 @@ void NATNET_CALLCONV DataHandler(sFrameOfMocapData* data, void* pUserData) {
         }
 
         // updating object position
-        obj->position = {data->RigidBodies[i].x, data->RigidBodies[i].y, data->RigidBodies[i].z};
+        obj->position = {cameraPosCoef * data->RigidBodies[i].x, cameraPosCoef * data->RigidBodies[i].y, cameraPosCoef * data->RigidBodies[i].z};
         // converting the Quaternion rotation to the Euler rotation
         Eigen::Quaternionf qq;
         qq.x() = data->RigidBodies[i].qx;
@@ -555,7 +556,8 @@ void NATNET_CALLCONV DataHandler(sFrameOfMocapData* data, void* pUserData) {
 
         Eigen::Vector3f euler = qq.toRotationMatrix().eulerAngles(0, 1, 2);
         // updating object rotation
-        obj->rotation = euler * 180 / M_PI;
+        Eigen::Vector3f oneEighty = {180.0, 180.0, 180.0};
+        obj->rotation = oneEighty - euler * 180 / M_PI;
         // std::cout << "Euler from quaternion in roll, pitch, yaw" << std::endl << euler << std::endl;
         // adding object to the Map using the (key = ID) and (value = obj)
         rigidObjectsMap[data->RigidBodies[i].ID] = obj;
